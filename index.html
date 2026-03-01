@@ -5,10 +5,33 @@
 <title>Master Bank</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body{margin:0;font-family:Arial;background:#111;color:white}
+html, body{
+  margin:0;
+  padding:0;
+  height:100%;
+  font-family:Arial;
+  background:#111;
+  color:white;
+  overflow:auto;
+  box-sizing:border-box;
+}
+*, *:before, *:after { box-sizing:inherit; }
 h1{text-align:center;margin:8px 0}
-.container{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px}
-.player{border-radius:14px;padding:10px;text-align:center}
+/* use responsive grid to avoid empty slots and allow wrapping */
+.container{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:10px;
+  padding:10px;
+}
+.player{
+  border-radius:14px;
+  padding:10px;
+  text-align:center;
+  /* make each player panel scrollable if content exceeds height */
+  max-height:80vh;
+  overflow:auto;
+}
 .balance{font-size:28px;color:#00ffcc}
 .collect{font-size:22px;color:#ffcc00}
 .name input{width:92%;font-size:16px;text-align:center;margin-bottom:5px}
@@ -143,39 +166,40 @@ function showReport(){
 }
 </script>
 
-<div class="container">
-<script>
-load();
-for(let i=0;i<players;i++){
-document.write(`
-<div class="player" style="background:${colors[i]}20">
- <div class="name">
-  <input id="n${i}" onchange="changeName(${i},this.value)">
- </div>
-
- <div class="balance">💵 <span id="b${i}">0</span></div>
- <div class="collect">🧺 <span id="c${i}">0</span></div>
-
- <div class="money">
- ${money.map(v=>`<button onclick="addMoney(${i},${v})">${v}</button>`).join("")}
- </div>
-
- <div class="actions">
-  <button class="add" onclick="addBalance(${i})">➕</button>
-  <button class="sub" onclick="subBalance(${i})">➖</button>
-  <button class="clear" onclick="clearCollect(${i})">❌</button>
-  <button class="zero" onclick="zeroBalance(${i})">0️⃣</button>
- </div>
-
- <div id="t${i}" class="actions"></div>
-
- <button id="l${i}" class="lock" onclick="lockPlayer(${i})">🔒 قفل</button>
- <div class="stats" id="s${i}"></div>
+<div class="container" id="players-container">
 </div>
-`);
+
+<script>
+// build player panels using DOM API to avoid document.write issues
+load();
+const container=document.getElementById('players-container');
+for(let i=0;i<players;i++){
+  const p=document.createElement('div');
+  p.className='player';
+  p.style.background=`${colors[i]}20`;
+
+  p.innerHTML=`
+  <div class="name">
+    <input id="n${i}" onchange="changeName(${i},this.value)">
+  </div>
+  <div class="balance">💵 <span id="b${i}">0</span></div>
+  <div class="collect">🧺 <span id="c${i}">0</span></div>
+  <div class="money">
+    ${money.map(v=>`<button onclick="addMoney(${i},${v})">${v}</button>`).join("")}
+  </div>
+  <div class="actions">
+    <button class="add" onclick="addBalance(${i})">➕</button>
+    <button class="sub" onclick="subBalance(${i})">➖</button>
+    <button class="clear" onclick="clearCollect(${i})">❌</button>
+    <button class="zero" onclick="zeroBalance(${i})">0️⃣</button>
+  </div>
+  <div id="t${i}" class="actions"></div>
+  <button id="l${i}" class="lock" onclick="lockPlayer(${i})">🔒 قفل</button>
+  <div class="stats" id="s${i}"></div>
+  `;
+  container.appendChild(p);
 }
 </script>
-</div>
 
 <div class="footer">
 <button onclick="showReport()">📊 تقرير الجولة</button>
