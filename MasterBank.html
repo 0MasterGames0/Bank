@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>MasterBank</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{margin:0;font-family:Arial;background:#111;color:white}
+h1{text-align:center;margin:10px 0;font-size:28px}
+.sectionTitle{text-align:center;font-size:22px;margin:15px 0;color:#ffcc00}
+
+/* التخطيط responsive */
+.container{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  padding:10px;
+}
+@media(min-width:768px){
+  .container{grid-template-columns:1fr 1fr;}
+}
+@media(min-width:1200px){
+  .container{grid-template-columns:1fr 1fr 1fr 1fr;}
+}
+
+.player{border-radius:15px;padding:10px;text-align:center;transition:0.3s}
+.player:hover{transform:scale(1.02);box-shadow:0 0 15px #00ffcc50}
+.name input{width:90%;font-size:16px;text-align:center;margin-bottom:8px;border-radius:8px;padding:5px}
+.balance{font-size:20px;margin-bottom:8px;color:#00ffcc}
+
+/* ألوان مختلفة لكل لاعب */
+.player:nth-child(1){background:#2c3e50}
+.player:nth-child(2){background:#1a5276}
+.player:nth-child(3){background:#145a32}
+.player:nth-child(4){background:#7d6608}
+
+.countryBtn{background:linear-gradient(145deg,#3498db,#1f5f8a);border:none;border-radius:10px;padding:8px 10px;margin:4px;color:white;font-weight:bold;box-shadow:0 4px 0 #0d3c5f;cursor:pointer;transition:0.2s}
+.countryBtn:hover{background:linear-gradient(145deg,#5dade2,#21618c)}
+.countryBtn:active{transform:translateY(2px);box-shadow:0 2px 0 #0d3c5f}
+.selected{background:linear-gradient(145deg,#f1c40f,#d4ac0d);color:black}
+
+.ownedCard{display:inline-block;background:linear-gradient(145deg,#2ecc71,#1e8449);border-radius:12px;padding:8px 12px;margin:4px;font-weight:bold;box-shadow:0 4px 0 #145a32;position:relative;cursor:pointer;transition:0.2s}
+.ownedCard:hover{background:linear-gradient(145deg,#58d68d,#239b56)}
+.ownedCard.selected{outline:3px solid yellow}
+.ownedCard::after{content:"✔";position:absolute;top:-6px;left:-6px;background:#000;color:#2ecc71;border-radius:50%;font-size:12px;padding:3px 6px}
+
+button.action{margin:5px;padding:8px 12px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;transition:0.2s}
+button.action:hover{opacity:0.8}
+.add{background:#2ecc71}
+.remove{background:#e74c3c;color:white}
+.send{background:#3498db;color:white}
+.transferBox button{display:block;width:90%;margin:4px auto}
+
+.footer button{width:95%;margin:6px auto;display:block;background:orange;font-size:16px;border:none;padding:10px;border-radius:10px;cursor:pointer;transition:0.2s}
+.footer button:hover{background:#f39c12}
+
+.collect{font-size:22px;color:#ffcc00}
+.money button{margin:4px;padding:12px 14px;border:none;border-radius:8px;font-size:16px;cursor:pointer;background:#444;color:white;transition:0.2s}
+.money button:hover{background:#666}
+.actions button{margin:4px;padding:12px 16px;border:none;border-radius:8px;font-size:15px;cursor:pointer}
+.sub{background:#e74c3c;color:white}
+.clear{background:gray;color:white}
+.lock{background:black;color:white;font-size:14px}
+.zero{background:#8e44ad;color:white}
+.stats{font-size:12px;margin-top:6px;color:#ccc}
+</style>
+</head>
+<body>
+
+<h1>🌍💰 MasterBank 💰🌍</h1>
+
+<!-- قسم الدول -->
+<div class="sectionTitle">🌍 قسم الدول</div>
+<div id="countriesSection" class="container"></div>
+<div class="footer">
+<button onclick="showCountriesReport()">📊 تقرير الدول</button>
+</div>
+
+<!-- قسم البنك -->
+<div class="sectionTitle">💰 قسم البنك</div>
+<div id="bankSection" class="container"></div>
+<div class="footer">
+<button onclick="showBankReport()">📊 تقرير البنك</button>
+</div>
+
+<div class="footer">
+<button onclick="localStorage.removeItem('MW_DATA');location.reload();">🔄 Reset</button>
+</div>
+
+<script>
+/* بيانات الدول */
+const countries=[
+ "مصر","تونس","الجزائر","المغرب","ليبيا","جنوب افريقيا","الصين",
+ "الهند","اليابان","كوريا الجنوبية","السعودية","الإمارات","فلسطين","اندونيسيا","تركيا","كولومبيا",
+ "المكسيك","الأرجنتين","البرازيل","كندا","الولايات المتحدة","هولندا","ايطاليا","اسبانيا","المانيا","فرنسا","بريطانيا","روسيا","استراليا"
+];
+
+const players=4; // عدد اللاعبين
+let owned=[],selectedPick=[],selectedOwned=[],names=[];
+
+/* بيانات البنك (زي الملف الأصلي) */
+const money=[5,10,25,50,100,200,500,1000,2000,5000,10000];
+let balance=[],collect=[],locked=[],count=[];
+
+/* تحميل البيانات */
+function load(){
+ let d=JSON.parse(localStorage.getItem("MW_DATA"));
+ if(d){
+   ({owned,names,balance,collect,locked,count}=d);
+ } else {
+   for(let i=0;i<players;i++){
+     owned[i]=[];
+     names[i]="Player "+(i+1);
+     balance[i]=0; 
+     collect[i]=0; 
+     locked[i]=false; 
+     count[i]={};
+   }
+ }
+ selectedPick=Array(players).fill(null);
+ selectedOwned=Array(players).fill(null);
+}
+
+/* حفظ البيانات */
+function save(){
+ localStorage.setItem("MW_DATA",JSON.stringify({owned,names,balance,collect,locked,count}));
+}
+</script>
+
+<script>
+/* دوال قسم الدول */
+
+// هل الدولة متاخدة بالفعل؟
+function isTaken(c){
+  return owned.some(p=>p.includes(c));
+}
+
+// اختيار دولة جديدة
+function selectCountry(i,c){
+  if(isTaken(c)) return;
+  selectedPick[i]=c;
+  update();
+}
+
+// إضافة دولة لللاعب
+function addCountry(i){
+  let c=selectedPick[i];
+  if(!c) return alert("اختار دولة");
+  owned[i].push(c);
+  selectedPick[i]=null;
+  update();
+}
+
+// اختيار دولة مملوكة
+function selectOwned(i,c){
+  selectedOwned[i]=c;
+  update();
+}
+
+// حذف دولة من لاعب
+function removeCountry(i){
+  let c=selectedOwned[i];
+  if(!c) return alert("اختار دولة للحذف");
+  owned[i]=owned[i].filter(x=>x!==c);
+  selectedOwned[i]=null;
+  update();
+}
+
+// تحويل دولة من لاعب لآخر
+function transferCountry(from,to){
+  let c=selectedOwned[from];
+  if(!c) return alert("اختار دولة للتحويل");
+  owned[from]=owned[from].filter(x=>x!==c);
+  owned[to].push(c);
+  selectedOwned[from]=null;
+  update();
+}
+</script>
+<script>
+/* دوال قسم البنك */
+
+// تنسيق الرقم للعرض
+function f(n){
+  return n.toLocaleString();
+}
+
+// إضافة مبلغ للسلة المؤقتة
+function addMoney(i,v){
+  if(locked[i]) return;
+  collect[i]+=v;
+  count[i][v]=(count[i][v]||0)+1;
+  update();
+}
+
+// إضافة السلة إلى الرصيد
+function addBalance(i){
+  if(locked[i]) return;
+  balance[i]+=collect[i];
+  collect[i]=0; count[i]={};
+  update();
+}
+
+// خصم السلة من الرصيد
+function subBalance(i){
+  if(locked[i]) return;
+  if(balance[i]<collect[i]) return alert("❌ الرصيد لا يكفي");
+  balance[i]-=collect[i];
+  collect[i]=0; count[i]={};
+  update();
+}
+
+// تحويل السلة من لاعب لآخر
+function sendMoney(from,to){
+  if(locked[from]) return;
+  if(balance[from]<collect[from]) return alert("❌ الرصيد لا يكفي");
+  balance[from]-=collect[from];
+  balance[to]+=collect[from];
+  collect[from]=0; count[from]={};
+  update();
+}
+
+// تصفير السلة
+function clearCollect(i){
+  collect[i]=0; count[i]={};
+  update();
+}
+
+// تصفير الرصيد بالكامل
+function zeroBalance(i){
+  if(!confirm("تصفير رصيد اللاعب؟")) return;
+  balance[i]=0; collect[i]=0; count[i]={};
+  update();
+}
+
+// قفل/فتح اللاعب
+function lockPlayer(i){
+  locked[i]=!locked[i];
+  document.getElementById("l"+i).innerText=locked[i]?"🔓 فتح":"🔒 قفل";
+  save();
+}
+</script>
+
+<script>
+/* تحديث العرض */
+function update(){
+ for(let i=0;i<players;i++){
+  // قسم الدول
+  document.getElementById("bC"+i).innerText=owned[i].length;
+  document.getElementById("nC"+i).value=names[i];
+
+  // عرض الدول المتاحة
+  let box=document.getElementById("countries"+i);
+  box.innerHTML="";
+  countries.forEach(c=>{
+   if(!isTaken(c)){
+    let btn=document.createElement("button");
+    btn.innerText=c;
+    btn.className="countryBtn";
+    if(selectedPick[i]==c) btn.classList.add("selected");
+    btn.onclick=()=>selectCountry(i,c);
+    box.appendChild(btn);
+   }
+  });
+
+  // عرض الدول المملوكة
+  let ownedBox=document.getElementById("owned"+i);
+  ownedBox.innerHTML="";
+  owned[i].forEach(c=>{
+    let div=document.createElement("div");
+    div.className="ownedCard";
+    if(selectedOwned[i]==c) div.classList.add("selected");
+    div.innerText=c;
+    div.onclick=()=>selectOwned(i,c);
+    ownedBox.appendChild(div);
+  });
+
+  // أزرار التحويل
+  let tBox=document.getElementById("transfer"+i);
+  tBox.innerHTML="";
+  for(let j=0;j<players;j++){
+    if(j!==i){
+      let btn=document.createElement("button");
+      btn.className="send";
+      btn.innerText="➡️ "+names[j];
+      btn.onclick=()=>transferCountry(i,j);
+      tBox.appendChild(btn);
+    }
+  }
+
+  // قسم البنك
+  document.getElementById("bB"+i).innerText=f(balance[i]);
+  document.getElementById("cB"+i).innerText=f(collect[i]);
+  document.getElementById("nB"+i).value=names[i];
+
+  // عرض تفاصيل السلة
+  let s="";
+  for(let m of money) if(count[i][m]) s+=`${m}:${count[i][m]} `;
+  document.getElementById("s"+i).innerText=s;
+
+  // أزرار التحويل في البنك
+  let t=document.getElementById("tB"+i);
+  t.innerHTML="";
+  for(let j=0;j<players;j++){
+   if(j!==i){
+    let btn=document.createElement("button");
+    btn.className="send";
+    btn.innerText="➡️ "+names[j];
+    btn.onclick=()=>sendMoney(i,j);
+    t.appendChild(btn);
+   }
+  }
+ }
+ save();
+}
+
+/* تغيير الاسم */
+function changeNameCountries(i,v){names[i]=v;update();}
+function changeNameBank(i,v){names[i]=v;update();}
+
+/* تقرير الدول */
+function showCountriesReport(){
+ let arr=[];
+ for(let i=0;i<players;i++) arr.push({name:names[i],count:owned[i].length});
+ arr.sort((a,b)=>b.count-a.count);
+ let txt="📊 تقرير الدول\n\n";
+ arr.forEach((p,i)=>{
+  let medal=i==0?"🥇":i==1?"🥈":i==2?"🥉":"";
+  txt+=`${medal} ${p.name} : ${p.count} دولة\n`;
+ });
+ alert(txt);
+}
+
+/* تقرير البنك */
+function showBankReport(){
+ let arr=[];
+ for(let i=0;i<players;i++) arr.push({name:names[i],balance:balance[i]});
+ arr.sort((a,b)=>b.balance-a.balance);
+ let txt="📊 تقرير البنك\n\n";
+ arr.forEach((p,i)=>{
+  let medal=i==0?"🥇":i==1?"🥈":i==2?"🥉":"";
+  txt+=`${medal} ${p.name} : ${p.balance.toLocaleString()} رصيد\n`;
+ });
+ alert(txt);
+}
+
+/* بناء العناصر */
+load();
+for(let i=0;i<players;i++){
+ // قسم الدول
+ document.getElementById("countriesSection").innerHTML+=`
+ <div class="player">
+  <input id="nC${i}" onchange="changeNameCountries(${i},this.value)">
+  <div class="balance">عدد الدول: <span id="bC${i}">0</span></div>
+  <div id="countries${i}"></div>
+  <button class="action add" onclick="addCountry(${i})">✅ إضافة</button>
+  <div id="owned${i}"></div>
+  <button class="action remove" onclick="removeCountry(${i})">❌ حذف</button>
+  <div id="transfer${i}" class="transferBox"></div>
+ </div>`;
+
+ // قسم البنك
+ document.getElementById("bankSection").innerHTML+=`
+ <div class="player">
+  <input id="nB${i}" onchange="changeNameBank(${i},this.value)">
+  <div class="balance">💵 <span id="bB${i}">0</span></div>
+  <div class="collect">🧺 <span id="cB${i}">0</span></div>
+  <div class="money">
+   ${money.map(v=>`<button onclick="addMoney(${i},${v})">${v}</button>`).join("")}
+  </div>
+  <div class="actions">
+   <button class="add" onclick="addBalance(${i})">➕</button>
+   <button class="sub" onclick="subBalance(${i})">➖</button>
+   <button class="clear" onclick="clearCollect(${i})">❌</button>
+   <button class="zero" onclick="zeroBalance(${i})">0️⃣</button>
+  </div>
+  <div id="tB${i}" class="actions"></div>
+  <button id="l${i}" class="lock" onclick="lockPlayer(${i})">🔒 قفل</button>
+  <div class="stats" id="s${i}"></div>
+ </div>`;
+}
+update();
+</script>
+</body>
+</html>
